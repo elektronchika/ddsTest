@@ -70,10 +70,10 @@ void initSpi(){
 	LPC_IOCON->PIO0_16 |= 0x00000082;  // MISO
 	LPC_IOCON->PIO0_17 |= 0x00000082;  // MOSI
 	//LPC_IOCON->PIO0_3  |= 0x00000080;  // dual dac CS
-	// Initialize SSP module
-	LPC_SYSCON->SSPCLKDIV = 0xff;
-	LPC_SSP->CR0 = 0x0000ff8f;  // Serial clock rate = ??, CPHA = 1, CPOL = 0, SPI, 16 bits
-	LPC_SSP->CPSR = 0x00000002; // Clock prescaler = 10
+	// Initialize SSP module, looking for 200kHz at SCLK
+	LPC_SYSCON->SSPCLKDIV = 0x3c;
+	LPC_SSP->CR0 = 0x0000008f;  // Serial clock rate = ??, CPHA = 1, CPOL = 0, SPI, 16 bits
+	LPC_SSP->CPSR = 0x00000002; // Clock prescaler = 2
 	LPC_SSP->CR1 = 0x00000002;  // SSP is master
 }
 
