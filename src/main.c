@@ -15,7 +15,8 @@
 #include <cr_section_macros.h>
 #include <NXP/crp.h>
 
-#define MCLK 25000000;
+#include <stdio.h>
+//#include <math.h>
 
 // Variable to store CRP value in. Will be placed automatically
 // by the linker when "Enable Code Read Protect" selected.
@@ -32,8 +33,13 @@ void initSpi();
 //void dacWrite(uint32_t writeData);
 void ddsWrite(uint16_t writeData);
 void initDDS();
+void setFreq0(uint64_t freq0);
 
 int i;
+
+const uint64_t MCLK = 25000000;
+const uint32_t ddsBits = 28;
+const uint32_t ddsCombs = 268435456;
 
 int main(void) {
 	
@@ -45,6 +51,7 @@ int main(void) {
 	initSpi();
 	initDDS();
 	//initDAC();
+	setFreq0(10000);
 	while(1) {
 		i++ ;
 		//initDDS();
@@ -66,13 +73,13 @@ void init(){
 void initSpi(){
 	// initialize SSP ports
 	LPC_IOCON->PIO0_14 |= 0x00000082;  // SCK
-	LPC_IOCON->PIO0_15 |= 0x00000082;  // GPIO, (old SSEL)
+	LPC_IOCON->PIO0_15 |= 0x00000082;  // 80 = GPIO, (old 82 = SSEL)
 	LPC_IOCON->PIO0_16 |= 0x00000082;  // MISO
 	LPC_IOCON->PIO0_17 |= 0x00000082;  // MOSI
 	//LPC_IOCON->PIO0_3  |= 0x00000080;  // dual dac CS
 	// Initialize SSP module, looking for 200kHz at SCLK
 	LPC_SYSCON->SSPCLKDIV = 0x3c;
-	LPC_SSP->CR0 = 0x0000008f;  // Serial clock rate = ??, CPHA = 1, CPOL = 0, SPI, 16 bits
+	LPC_SSP->CR0 = 0x000000cf;  // Serial clock rate = ??, CPHA = 1, CPOL = 0, SPI, 16 bits
 	LPC_SSP->CPSR = 0x00000002; // Clock prescaler = 2
 	LPC_SSP->CR1 = 0x00000002;  // SSP is master
 }
@@ -108,7 +115,7 @@ void ddsWrite(uint16_t writeData){
 // This function initialize AD9834 with the AN-1070 method
 // with 25MHz clock, this should give 400Hz output frequency
 void initDDS(){
-	ddsWrite(0x2100);   // ctrl reg
+/*	ddsWrite(0x2100);   // ctrl reg
 	ddsWrite(0X4ac7);   // freq reg 0 lsb
 	ddsWrite(0X8000);   // freq reg 0 msb
 	ddsWrite(0X50c7);   // freq reg 1 lsb
@@ -116,6 +123,63 @@ void initDDS(){
 	ddsWrite(0XC000);   // phase reg 0
 	ddsWrite(0XE000);   // phase reg 1
 	ddsWrite(0x0000);   // ctrl reg // working with 25MHz MCLK
+*/
+/*	ddsWrite(0x0100);   // lsb only
+	ddsWrite(0x50c7);   // reg0
+	ddsWrite(0x90c7);   // reg1
+	//ddsWrite(0x1100);   // msb only
+	//ddsWrite(0x4000);   // reg0
+	//ddsWrite(0x8000);   // reg1
+	ddsWrite(0xc000);   // phase0
+	ddsWrite(0xe000);   // phase1
+	ddsWrite(0x0000);   // control, freq0
+*/
+
+	ddsWrite(0x2100);   // ctrl reg
+	ddsWrite(0X50c7);   // freq reg 0 lsb
+	ddsWrite(0X4000);   // freq reg 0 msb
+	ddsWrite(0X90c7);   // freq reg 1 lsb
+	ddsWrite(0X8000);   // freq reg 1 msb
+	ddsWrite(0XC000);   // phase reg 0
+	ddsWrite(0XE000);   // phase reg 1
+	ddsWrite(0x2000);   // ctrl reg // working with 25MHz MCLK
+}
+
+/*void setFreq0(uint64_t freq0){
+	uint64_t ftw0;
+	uint16_t low16, high16;
+	ftw0 = (freq0<<28)/MCLK;
+	low16 = 0x8000 + ftw0*0x3fff;
+	high16 = 0x8000 + (ftw0>>14)*0x3fff;
+	ddsWrite(0x2100);
+	ddsWrite(low16);
+	ddsWrite(high16);
+	ddsWrite(0x2000);
+}*/
+
+void setFreq0(uint64_t freq0){
+	uint64_t ftw0;
+	uint16_t low16, high16;
+	ftw0 = (freq0<<28)/MCLK;
+	low16 = ftw0 & 0x3fff;
+	low16 = low16 + 0x4000;
+	high16 = (ftw0>>14);
+	high16 &= 0x3fff;
+	high16 = high16 + 0x4000;
+//	ddsWrite(0x2100);
+//	ddsWrite(low16);
+//	ddsWrite(high16);
+//	ddsWrite(0x2000);
+
+	//
+	ddsWrite(0x2100);   // ctrl reg
+//	ddsWrite(0X4ac7);   // freq reg 0 lsb
+//	ddsWrite(0X8000);   // freq reg 0 msb
+	ddsWrite(low16);    // freq reg 1 lsb
+	ddsWrite(high16);   // freq reg 1 msb
+//	ddsWrite(0XC000);   // phase reg 0
+//	ddsWrite(0XE000);   // phase reg 1
+	ddsWrite(0x2000);   // ctrl reg // working with 25MHz MCLK
 }
 
 /*void initDAC(){
